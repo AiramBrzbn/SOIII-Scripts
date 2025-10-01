@@ -1,0 +1,109 @@
+Comandos usados practica 1
+
+En esta practica no fueron usados comandos, ya que se realizó la instalación de Rocky Linux por su interfaz gráfica.
+============================================
+
+Comandos usados practica 2
+
+REVISANDO CONEXIONES
+ip address
+nmcli device status
+nmcli con show
+CONFIGURANDO DHCP
+
+##nmcli##
+nmcli con mod ens160 ipv4.method auto
+nmcli con up ens160
+
+##nmtui#
+nmtui
+
+#Editando el archivo de configuración#
+cd /etc/sysconfig/NetworkManager/system-connections
+method=auto
+nmcli con reload
+nmcli con up ens160
+
+CONFIGURANDO IP ESTÁTICA
+#nmcli#
+nmcli con mod ens160 ipv4.addresses 192.168.1.50/24
+nmcli con mod ens160 ipv4.gateway 192.168.1.1
+nmcli con mod ens160 ipv4.method manual
+nmcli con up ens160
+
+#nmtui#
+nmtui
+
+#Editando el archivo de configuración#
+cd /etc/sysconfig/NetworkManager/system-connections
+Method=auto
+address=192.168.1.50/24,192.168.1.1
+nmcli con reload
+nmcli con up ens160
+
+CONFIGURANDO DNS DE GOOGLE 8.8.8.8 8.8.4.4
+nmcli con mod ens160 ipv4.dns "8.8.8.8 8.8.4.4"
+nmcli con mod ens160 ipv4.ignore-auto-dns yes
+nmcli con up ens160
+cat /etc/resolv.conf
+
+============================================
+
+Comandos usados practica 3
+
+VERIFICANDO EXISTENCIA DE USUARIOS Y GRUPOS
+cut -d: -f1 /etc/passwd
+cut -d: -f1 /etc/group
+
+CREANDO MI USUARIO Y DANDO PERMISOS SUDO
+Sudo useradd Airam
+sudo passwd Airam
+sudo usermod -aG wheel Airam
+groups Airam
+
+CREANDO GRUPO GUEST Y SU USUARIO
+sudo groupadd guest
+sudo useradd Invitadop
+sudo passwd Invitadop
+sudo usermod -aG guest Invitadop
+groups invitadop
+
+ELIMINANDO AL USUARIO INVITADO Y GRUPO GUEST
+sudo userdel -r Invitadop
+sudo groupdel guest
+
+============================================
+
+Comandos usados practica 4
+
+CREANDO CARPETA MATERIA, ARCHIVO ESTUDIANTE.TXT Y AGREGANDOLE DATOS CON VI
+ls
+mkdir materia
+cd materia
+pwd
+vi estudiante.txt
+cat estudiante.txt
+
+MODIFICANDO PERMISOS DE USUARIO Y GRUPO
+chmod 700 estudiante.txt
+ls -l estudiante.txt
+chmod 070 estudiante.txt
+ls -l estudiante.txt
+
+CREANDO CARPETA materia2 Y COLOCANDO COPIAS DE ARCHIVOS EN ELLA-ELIMINANDO CARPETA MATERIA
+cd ..
+mkdir materia2
+cd materia2
+ls
+cd ..
+cp /home/ab20240787/materia/estudiante.txt /home/ab20240787/materia2/
+ls materia2/
+rm -r materia
+
+============================================
+
+
+
+
+
+
