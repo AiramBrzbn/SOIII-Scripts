@@ -1,0 +1,81 @@
+Practica 1
+Listar los repositorios actualmente en uso
+dnf repolist all
+para ver solo los activos
+dnf repolist enabled
+Actualizar los repositorios del sistema:
+sudo dnf update && upgrade
+
+buscar la herramienta en el caché de los repositorios
+dnf search bashtop
+
+si esta disponible en el repositorio
+sudo dnf install bashtop -y
+si no lo instalamos de manera manual con:
+cd /opt
+sudo git clone https://github.com/aristocratos/bashtop.git
+cd bashtop
+sudo make install
+si no contamos con la herramienta make install la descargamos asi:
+sudo dnf groupinstall "Development Tools" -y
+
+bashtop
+
+Desinstalarla con dnf
+sudo dnf remove bashtop -y
+Si se instaló manualmente
+sudo rm -rf /opt/bashtop
+sudo rm /usr/local/bin/bashtop
+
+rm -rf ~/.config/bashtop
+sudo dnf autoremove -y
+
+
+Practica 2
+
+Tarea para actualizar el sistema todas las tardes a las 11pm
+sudo crontab -e
+0 23 * * * dnf update -y 
+sudo crontab -l
+Tarea para que nuestra máquina se reinicie todos los domingos a las 3AM
+sudo crontab -e
+0 3 * * 0 /sbin/shutdown -r now
+sudo crontab -l
+
+ls/tmp
+echo "sudo rm -rf /tmp/*" | at now + 1 minute
+atq
+ls /tmp
+
+Practica 3
+lsblk 
+
+CREANDO UNA PARTICIÓN EN EL DISCO
+sudo fdisk /dev/nvme0n2
+n	nueva partición
+p	tipo primaria
+enter
+enter
+w
+
+lsblk
+FORMATEAMOS LA PARTICIÓN COMO EXT4
+sudo sudo mkfs.ext4 /dev/nvme0n2p1
+
+CREANDO UNA CARPETA EN EL ESCRITORIO Y MONTAMOS EL DISCO 
+cd Desktop
+mkdir DiscoP
+sudo mount /dev/nvme0n2p1 ~/Desktop/DiscoP
+ls DiscoP
+
+CREANDO EL ARCHIVO DEL MAESTRO EN LA CARPETA DEL DISCO
+ls DiscoP
+cd DiscoP
+sudo touch AdrianAlcantara.txt
+
+DESMONTANDO Y CAMBIANDO DE LOCALIZACIÓN EL DISCO
+cd..
+sudo umount ~/Desktop/DiscoP
+sudo mount /dev/nvme0n2p1 /mnt
+ls /mnt
+
