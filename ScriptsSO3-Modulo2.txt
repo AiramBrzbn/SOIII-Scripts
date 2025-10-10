@@ -1,4 +1,4 @@
-Practica 1
+Practica 1-Gestión de repositorios 
 Listar los repositorios actualmente en uso
 dnf repolist all
 para ver solo los activos
@@ -29,9 +29,9 @@ sudo rm /usr/local/bin/bashtop
 
 rm -rf ~/.config/bashtop
 sudo dnf autoremove -y
+##################################################
 
-
-Practica 2
+Practica 2-Automatización de tareas
 
 Tarea para actualizar el sistema todas las tardes a las 11pm
 sudo crontab -e
@@ -46,8 +46,9 @@ ls/tmp
 echo "sudo rm -rf /tmp/*" | at now + 1 minute
 atq
 ls /tmp
+#####################################
 
-Practica 3
+Practica 3-Administración de discos y almacenamiento
 lsblk 
 
 CREANDO UNA PARTICIÓN EN EL DISCO
@@ -78,4 +79,5 @@ cd..
 sudo umount ~/Desktop/DiscoP
 sudo mount /dev/nvme0n2p1 /mnt
 ls /mnt
+
 
