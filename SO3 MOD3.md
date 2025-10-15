@@ -184,9 +184,9 @@ exit
 
 ssh-keygen
 
-**Copiamos las llaves y nos dirigimos a Rocky Linux para pegar la publica en el siguiente archivo:** 
+**Copiamos la llave pública y nos dirigimos a Rocky Linux para pegarla en el archivo authorized_keys en .ssh, en caso no tener dichos archivos, los creamos:** 
 
-cd
+(En windows para abrir el archivo que la contiene y poder copiar la llave) notepad Dirección_llave_pública
 
 mkdir .ssh
 
@@ -197,5 +197,6 @@ sudo nano authorized\_keys
 ctrl+o, ctrl+x
 
 Repetimos el control remoto por ssh desde Windows y si podemos entrar sin contraseña hemos tenido exito con la generación y uso de las llaves.
+
 
 
