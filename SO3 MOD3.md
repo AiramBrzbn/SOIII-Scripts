@@ -196,5 +196,6 @@ sudo nano authorized\_keys
 
 ctrl+o, ctrl+x
 
-Repetidos el control remoto por ssh desde Windows y si podemos entrar sin contraseña hemos tenido exito con la generación y uso de las llaves.
+Repetimos el control remoto por ssh desde Windows y si podemos entrar sin contraseña hemos tenido exito con la generación y uso de las llaves.
+
 
