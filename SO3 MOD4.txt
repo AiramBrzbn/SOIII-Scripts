@@ -1,0 +1,150 @@
+Practica 1: Instalación de servidor HTTP Apache2
+
+Instalamos Apache2
+sudo dnf install httpd -y
+sudo systemctl start httpd
+sudo systemctl enable httpd
+sudo systemctl status httpd
+
+Creamos el archivo index, el cual contendrá el desarrollo de la página
+cd /var/www/html
+sudo mkdir hola
+cd hola
+sudo nano index.html
+<!DOCTYPE html>
+<html>
+<head><title>Hola Mundo</title></head>
+<body><h1>Hola Mundo</h1></body>
+</html>
+Guardamos y salimos
+
+Modificamos el archivo de configuración de la herramienta para crear el virtualhost
+sudo nano /etc/httpd/conf/httpd.conf
+Nos aseguramos de que esté la línea "Listen 80" (ya suele estar por defecto).
+Luego, al final del archivo agregamos lo siguiente para configurar el VirtualHost del sitio hola:
+
+<VirtualHost *:80>
+     ServerName hola.localhost
+     DocumentRoot "/var/www/html/hola"
+     ServerAdmin root@localhost
+</VirtualHost>
+sudo systemctl restart httpd
+
+Agregamos el nombre del servidor al archivo hosts para simular acceso por nombre:
+sudo nano /etc/hosts
+127.0.0.1    hola.localhost
+Guardamos y salimos
+Abrimos el navegador y accedemos a http://hola.localhost — verificamos que se muestre “Hola Mundo”.
+
+Ahora volvemos a /var/www/html para crear el segundo sitio:
+
+cd /var/www/html
+sudo mkdir estudiante
+cd estudiante
+
+sudo nano index.html
+<!DOCTYPE html>
+<html>
+<head><title>Estudiante</title></head>
+<body>
+<h2>Airam Brazoban Matos</h2>
+<p>Matrícula: 2024-0787</p>
+<p>Materia: Sistemas Operativos III<br>
+Docente: Adrian Alcántara</p>
+</body>
+</html>
+
+sudo nano /etc/httpd/conf/httpd.conf
+
+Listen 8080
+<VirtualHost *:8080>
+     ServerName estudiante.localhost
+     DocumentRoot "/var/www/html/estudiante"
+     ServerAdmin root@localhost
+</VirtualHost>
+sudo systemctl restart httpd
+
+sudo nano /etc/hosts
+127.0.0.1    estudiante.localhost
+Guardamos, salimos.
+
+http://estudiante.localhost:8080
+
+Segunda Practica: Servidor de correo electronico 
+
+Instalamos Postfix para realizar el servidor
+sudo dnf install postfix -y
+sudo systemctl enable postfix
+sudo systemctl start postfix
+sudo systemctl status postfix
+
+Abrimos los puertos para el envío y el relay que utilizaremos
+sudo firewall-cmd --permanent --add-port=25/tcp
+sudo firewall-cmd --permanent --add-port=465/tcp
+sudo firewall-cmd --permanent --add-port=587/tcp
+sudo firewall-cmd --reload
+
+Modificamos el archivo de configuración
+sudo nano /etc/postfix/main.cf
+
+myorigin = $myhostname
+inet_interfaces = all
+mydestination = $myhostname, localhost.$mydomain, localhost
+mynetworks = 127.0.0.0/8, 10.0.0.103/24 (Nuestra dirección IP)  
+Colocar al final
+relayhost = [smtp.gmail.com]:587
+smtp_sasl_auth_enable = yes
+smtp_sasl_password_maps = hash:/etc/postfix/sasl_passwd
+#En caso de que no te reconozca hash cambia esa parte por lmbd#
+smtp_sasl_security_options = noanonymous
+Guardamos y salimos
+
+Creamos el archivo para tener acceso usando el relay
+sudo nano /etc/postfix/sasl_passwd
+[smtp.gmail.com]:587 tu_correo@gmail.com:contraseña_de_aplicación
+Guardamos y salimos
+sudo chmod 600 /etc/postfix/sasl_passwd
+#En caso de que no funcione la siguiente línea de manera regular, agrega lmbd: antes de /etc#
+sudo postmap /etc/postfix/sasl_passwd
+sudo systemctl restart postfix
+nano mensaje.txt
+Escribimos nuestro nombre y matricula para despues guardar y salir
+mail -s "MambruSeFueALaGuerra" os3conadrian@gmail.com < mensaje.txt
+
+Practica 3: Instalación de un servidor de impresión
+Instalamos el servidor de impresión cups y la impresora virtual pdf
+sudo dnf install cups -y
+sudo systemctl enable --now cups
+sudo systemctl status cups
+sudo dnf install cups-pdf -y
+
+Abriendo el puerto para la interfaz web de CUPS
+sudo firewall-cmd --add-port=631/tcp --permanent
+sudo firewall-cmd --reload
+
+Editando su archivo de configuración
+sudo nano /etc/cups/cupsd.conf
+Cambiamos Listen localhost:631 por Port 631
+Agregaremos Allow from 10.0.0.98 (la dirección de nuestra Windows) en:
+#Restrict access to the server...
+#Restrict access to the admin pages...
+#Restrict access to configuration files...
+#Restrict access to log files...
+Guardamos y salimos
+
+Permitimos administración remota, compartir impresoras y clientes externos
+cupsctl --remote-admin --remote any-- --share printers
+sudo systemctl restart cups
+
+Entramos a la interfaz web a través de nuestro navegador
+Dirección_IP:631
+
+Vamos a Administration > Add Printer, seleccionamos la impresora PDF, le asignamos un nombre, marcamos "Share this printer", elegimos la marca Generic y el modelo "Generic CUPS-PDF Printer", luego hacemos clic en "Add Printer".
+
+Vamos a copiar la url que se generó.
+
+Luego en Windows vamos al apartado de impresoras, agregar, la impresora que quiero no aparece, elegir una impresora compartida usando su nombre y pegamos la url generada anteriormente.
+
+Ya con la instalación finalizada, entramos a word, hacemos un documento, Ctrl+p para imprimirlo, elegimos nuestra impresora y le damos a imprimir.
+
+Podremos ver el resultado ingresando a la interfaz web de CUPS y abriendo los trabajos completados.
