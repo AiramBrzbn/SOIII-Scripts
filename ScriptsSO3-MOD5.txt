@@ -1,0 +1,186 @@
+Practica 1: Sincronización con Rsync
+
+Primero vamos a descargar rsync en las dos máquinas Rocky que usaremos:
+sudo dnf install rsync -y
+
+Ahora para evitar que la sincronización falle debido a falta de credenciales para la conexión entre las máquinas, crearemos llaves ssh para que el servidor principal pueda conectarse al secundario:
+
+ssh-keygen
+ssh-copy-id ab20240787@10.0.0.117
+
+En el servidor principal creamos la carpeta cuyos archivos se sincronizarán:
+
+mkdir ~/Psync
+
+Dentro de la carpeta vamos a crear 100 archivos y comprobamos que se hayan creado
+cd ~/Psync
+touch Probando{1..100}
+ls
+
+Ahora en el servidor secundario crearemos la carpeta que recibirá estos archivos:
+mkdir ~/Respaldo
+
+Volveremos al servidor principal para iniciar la sincronización entre las carpetas usando rsync junto al usuario y contraseña del secundario:
+rsync -avz ~/Psync/ ab20240787@10.0.0.117:~/Respaldo/
+
+Comprobamos que se transfirió al secundario:
+cd ~/Respaldo
+ls
+
+Ahora crearemos un script en el servidor principal para que la sincronización se realice cada minuto:
+cd
+nano Respaldando.sh
+Dentro del archivo script:
+#!/bin/bash
+rsynch -avz ~/Psync/ ab20240787@192.168.:~/Respaldo/
+* * * * * /home/ab20240787/Respaldando.sh
+Vamos a crear algunos archivos para confirmar su funcionamiento:
+cd ~/Psync
+touch RESULTADO{1..30}
+ls
+Ahora verificamos que después del tiempo establecido se hayan respaldado los archivos al servidor secundario:
+cd ~/Respaldo
+ls
+Si los archivos aparecen entonces se ha realizado la sincronización con éxito.
+
+################################################################################################
+
+Practica 2:Instalación y configuración de un Cluster
+
+Igual que en la practica anterior vamos a necesitar dos servidores Rocky Linux, en cada uno vamos a habilitar los repositorios para alta disponibilidad:
+
+sudo dnf install -y epel-release
+sudo dnf config-manager --set-enabled highavailability
+sudo dnf config-manager --enable highavailability
+
+En vamos servidores vamos a instalar la herramienta Pacemaker y lo necesario para ella:
+
+sudo dnf install -y pacemaker pcs
+
+Nos aseguramos de que en ambos servidores el servicio esté habilitado e iniciado:
+
+sudo systemctl enable pcsd
+sudo systemctl start pcsd
+
+A los dos servidores le colocaremos una contraseña al usuario hacluster que usaremos para configurar:
+
+sudo passwd hacluster
+
+Configuramos el firewall para que permita que el cluster se pueda comunicar en ambos servidores:
+
+sudo firewall-cmd --permanent --add-service=high-availability
+sudo firewall-cmd --reload
+
+Ahora iremos a nuestro servidor principal para autenticar tanto los nodos, como los host, con sus respectivas IPs:
+
+sudo pcs cluster auth 10.0.0.119 10.0.0.116 -u hacluster
+sudo pcs host auth 10.0.0.119 10.0.0.116 -u hacluster
+
+Tras colocar la contraseña que elegimos para el usuario hacluster, ahora crearemos el cluster en sí con su respectivo nombre:
+
+sudo pcs cluster setup cluster-ab20240787 10.0.0.119 10.0.0.116
+
+Vamos a habilitar e iniciar nuestro cluster, para luego ver su estado:
+
+sudo pcs cluster enable --all
+sudo pcs cluster start --all
+sudo pcs status
+
+Si queremos podemos deshabilitar también Stonith, el cual es una medida de protección contra fallas, como esto no es obligatorio, recomiendo intentarlo sin deshabilitarlo primero, pero en caso de que lo hagan es así:
+
+sudo pcs property set stonith-enabled=false
+
+Configuramos la IP flotante que se mantendrá entre un servidor u otro dependiendo de quien caiga:
+
+sudo pcs resource create Ip_Flotante ocf:heartbeat:IPaddr2 ip=10.0.0.150 cidr_netmask=24 op monitor interval=30s
+
+Para confirmar el funcionamiento exitoso de nuestra practica vamos a hacer un ping constante a nuestra dirección IP flotante desde nuestra máquina host (ping -t 10.0.0.150) y reiniciaremos nuestros servidores uno a la vez para ver como el otro entra en acción, si el ping se mantiene aunque uno de estos caiga hemos tenido éxito.
+
+
+
+#######################################################################
+Practica 3: Alta Disponibilidad y Clustering (verificando con http). 
+
+
+Para esta practica vamos a estar usando como en las anteriores una máquina Rocky Linux y su clon, además vamos a utilizar páginas web, así que debemos instalar Apache en ambos servidores para hacerlo
+
+sudo dnf install httpd
+
+Vamos a creamr una página index.html en cada servidor:
+
+echo "<h1>Servidor 1 - IP: 192.168.1.9</h1>" | sudo tee /var/www/html/index.html
+
+echo "<h1>Servidor 2 - IP: 192.168.1.100</h1>" | sudo tee /var/www/html/index.html
+
+Nos aseguramos ser propietarios del archivo de index de las páginas para evitar inconvenientes:
+
+sudo chown ab20240787:ab20240787 /var/www/html/index.html
+
+Habilitamos http en los firewalls de Rocky:
+
+sudo firewall-cmd --permanent --add-service=http
+sudo firewall-cmd --reload
+
+Y vamos a habilitar y arrancar Apache en nuestros servidores:
+
+sudo systemctl enable httpd
+sudo systemctl start httpd
+sudo systemctl status httpd
+
+Instalamos Keepalived en ambos servidores:
+
+sudo dnf install keepalived
+
+Ahora vamos a editar el archivo de configuración de Keepalived, primero eliminaremos le existente ya que esta viene con una configuración que no nos interesa:
+
+sudo rm /etc/keepalived/keepalived.conf
+sudo nano /etc/keepalived/keepalived.conf
+
+Dentro del archivo de configuración, colocamos los parámetros a cada uno de nuestros servidores:
+
+vrrp_instance VI_1 {
+    state MASTER
+    interface ens160
+    virtual_router_id 51
+    priority 99
+    advert_int 1
+    authentication {
+        auth_type PASS
+        auth_pass 12345
+    }
+    virtual_ipaddress {
+        10.0.0.155
+    }
+}
+
+
+vrrp_instance VI_1 {
+    state BACKUP
+    interface ens160
+    virtual_router_id 51
+    priority 50
+    advert_int 1
+    authentication {
+        auth_type PASS
+        auth_pass 12345
+    }
+    virtual_ipaddress {
+        10.0.0.155
+    }
+}
+
+
+Ahora vamos a iniciar y habilitar Keepalived en ambos servidores:
+
+sudo systemctl enable keepalived
+sudo systemctl start keepalived
+sudo systemctl status keepalived
+
+Y también reiniciamos el servicio de Apache:
+
+sudo systemctl restart httpd
+sudo systemctl status httpd
+
+
+Para verificar la alta disponibilidad, vamos a nuestra máquina host, entramos a la dirección configurada de la página para comprobar que es funcional y desde el cmd vamos a hacer un ping constante a su dirección IP para ver como se mantiene su funcionalidad, luego vamos a reiniciar los servidores en turnos, la página web y el ping deberían mantenerse funcionales.
+
