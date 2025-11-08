@@ -1,0 +1,202 @@
+Practica 1: Cifrado
+
+Primero vamos a tener que instalar la herramienta que usaremos para cifrar y descifrar en esta practica GPG2:
+sudo dnf install gnupg2 -y
+
+Vamos a crear un directorio en el cual probaremos esta herramienta:
+sudo mkdir ProbandoGpg2
+cd ProbandoGpg2
+
+Ahora con la herramienta descargada y en nuestro directorio, vamos a crear el archivo que vamos a cifrar:
+
+echo "Cifrando con GPG2" | sudo tee ObjetivoC.txt
+
+Debemos asegurarnos de que el archivo sea funcional:
+ls -l
+cat ObjetivoC.txt
+
+Ciframos nuestro archivo 'ObjetivoC' de forma simétrica usando GPG2, tras colocar una contraseña para el cifrado se creará nuestro archivo cifrado llamado ObjetivoC.txt.gpg:
+sudo gpg2 -c ObjetivoC
+
+Confirmamos que el archivo se creó y de paso también encontramos el archivo original: 
+ls
+
+Leemos el archivo con el comando cat y confirmamos que ha sido cifrado (si accedemos al archivo usando nano también veremos el resultado):
+cat ObjetivoC.gpg
+
+Ahora para descifrar el archivo debemos usar el siguiente comando y la contraseña que asignamos al cifrar con anterioridad:
+sudo gpg2 -d ObjetivoC.txt.gpg | sudo tee ObjetivoC.txt
+
+Si podemos leer el contenido del archivo hemos tenido éxito al cifrar y descifrar.
+
+Con el comando anterior solo veremos el contenido del archivo, pero si queremos tener una copia del archivo desencriptado simplemente usamos:
+sudo gpg2 -d ObjetivoC.txt.gpg | sudo tee Objetivo.txt
+
+#####################################################################################################
+
+Practica 2: IP tables - UFW/Firewall-cmd
+
+# Detener firewalld para usar iptables
+sudo systemctl stop firewalld
+
+# Instalar los tres servicios a utilizar (HTTP, FTP, SSH)
+sudo dnf install httpd vsftpd openssh-server -y
+
+# Iniciar y habilitar los tres servicios:
+sudo systemctl start httpd vsftpd sshd
+sudo systemctl enable httpd vsftpd sshd
+
+# Verificar servicios:
+systemctl status httpd
+systemctl status vsftpd
+systemctl status sshd
+
+# IPTABLES - Permitir tráfico
+sudo iptables -A INPUT -p tcp --dport 80 -j ACCEPT   
+sudo iptables -A INPUT -p tcp --dport 21 -j ACCEPT   
+sudo iptables -A INPUT -p tcp --dport 22 -j ACCEPT   
+
+# IPTABLES - Bloquear tráfico
+sudo iptables -D INPUT -p tcp --dport 80 -j ACCEPT
+sudo iptables -D INPUT -p tcp --dport 21 -j ACCEPT
+sudo iptables -D INPUT -p tcp --dport 22 -j ACCEPT
+
+sudo iptables -A INPUT -p tcp --dport 80 -j REJECT
+sudo iptables -A INPUT -p tcp --dport 21 -j REJECT
+sudo iptables -A INPUT -p tcp --dport 22 -j REJECT
+
+# IPTABLES - Volver a permitir tráfico
+sudo iptables -D INPUT -p tcp --dport 80 -j REJECT
+sudo iptables -D INPUT -p tcp --dport 21 -j REJECT
+sudo iptables -D INPUT -p tcp --dport 22 -j REJECT
+
+sudo iptables -A INPUT -p tcp --dport 80 -j ACCEPT
+sudo iptables -A INPUT -p tcp --dport 21 -j ACCEPT
+sudo iptables -A INPUT -p tcp --dport 22 -j ACCEPT
+
+# FIREWALLD - Iniciar servicio
+sudo systemctl start firewalld
+
+# FIREWALLD - Bloquear tráfico
+sudo firewall-cmd --permanent --remove-service=http
+sudo firewall-cmd --permanent --remove-service=ftp
+sudo firewall-cmd --permanent --remove-service=ssh
+sudo firewall-cmd --reload
+
+# FIREWALLD - Permitir tráfico nuevamente
+sudo firewall-cmd --permanent --add-service=http
+sudo firewall-cmd --permanent --add-service=ftp
+sudo firewall-cmd --permanent --add-service=ssh
+sudo firewall-cmd --reloadwe
+
+######################################################################
+
+Practica 3: Instalación y configuración de reglas con IDS Snort
+
+Como buena practica debemos actualizar nuestro sistema:
+sudo dnf update -y && sudo yum update -y
+
+
+Habilitaremos los primeros repositorios necesarios (el primero es EPEL y el segundo es CodeReady Builder)
+sudo dnf install https://dl.fedoraproject.org/pub/epel/epel-release-latest-8.noarch.rpm -y
+sudo dnf config-manager --set-enabled crb
+
+
+Para configurar librerías, nos ubicamos en el archivo:
+
+sudo nano /etc/ld.so.conf.d/local.conf   
+
+Y Agregaremos :
+/usr/local/lib
+/usr/local/lib64
+
+Actualizamos el caché de librerías:
+sudo ldconfig
+
+
+Instalamos dependencias:
+sudo dnf install flex bison gcc gcc-c++ make cmake autoconf libtool git nano unzip wget \
+libpcap-devel pcre-devel hwloc-devel openssl-devel zlib-devel luajit-devel \
+pkgconfig pkgconf libunwind-devel libnfnetlink-devel libnetfilter_queue-devel \
+libmnl-devel xz-devel gperftools libuuid-devel hyperscan hyperscan-devel -y
+
+
+Instalar la dependencia libdnet desde GitHub:
+cd ~
+git clone https://github.com/dugsong/libdnet.git
+cd libdnet
+./configure --without-check
+make
+sudo make install
+sudo ldconfig
+
+
+Instalamos libdaq (captura de paquetes de red)
+
+cd ~
+git clone https://github.com/snort3/libdaq.git
+cd libdaq && ./bootstrap && ./configure && make && sudo make install
+sudo ldconfig && cd ..
+
+Instalamos libpcre2 y su paquete de desarrollo (procesamiento de expresiones regulares):
+
+sudo dnf install pcre2 pcre2-devel -y
+
+
+Instalamos Snort (estaremos clonando el repositorio de la instalación)
+
+git clone https://github.com/snort3/snort3.git
+cd snort3
+
+export PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:$PKG_CONFIG_PATH
+export PKG_CONFIG_PATH=/usr/local/lib64/pkgconfig:$PKG_CONFIG_PATH
+export CFLAGS="-O3"
+export CXXFLAGS="-O3 -fno-rtti"
+
+./configure_cmake.sh --prefix=/usr/local/snort --enable-tcmalloc
+cd build/ && make -j$(nproc) && sudo make -j$(nproc) install
+cd ../.. && sudo ldconfig
+
+
+Crearemos el enlace simbólico (acceso directo) desde la ubicación donde se instaló Snort manualmente hacia una ubicación que está en el PATH del sistema:
+
+sudo ln -s /usr/local/snort/bin/snort /usr/bin/snort
+
+
+Verificamos que la instalación fue correcta:
+snort -V
+
+
+Configuramos snort.lua para definir la red interna:
+sudo nano /usr/local/snort/etc/snort/snort.lua   
+
+
+Editaremos la línea "HOME_NET" con nuestra dirección IP y máscara:
+HOME_NET = '10.0.0.116/24'
+
+
+Con el siguiente comando revisaremos que todo funcione en el archivo anterior:
+
+snort -T -c /usr/local/snort/etc/snort/snort.lua
+
+
+Activamos el modo promiscuo (esto hace que capture y procese todos los paquetes que pasan por la red):
+
+sudo ip link set dev ens160 promisc on
+
+Configuramos el archivo correspondiente para colocar nuestras reglas:
+
+sudo nano /usr/local/snort/etc/snort/local.rules
+
+Agregamos nuestras reglas:
+alert icmp any any -> $HOME_NET any (msg:"ICMP Traffic Detected"; sid:10000001;)
+alert tcp any any -> $HOME_NET 21 (msg:"FTP Traffic Detected on port 21"; sid:10000002;)
+alert tcp any any -> $HOME_NET 22 (msg:"SSH Traffic Detected on port 22"; sid:10000003;)
+alert tcp any any -> $HOME_NET 80 (msg:"HTTP Traffic Detected on port 80"; sid:10000004;)
+
+
+Ejecutamos Snort con las reglas creadas:
+sudo /usr/local/snort/bin/snort -c /usr/local/snort/etc/snort/snort.lua \
+-R /usr/local/snort/etc/snort/local.rules \
+-i ens160 -A alert_fast -s 65535 -k none
+
