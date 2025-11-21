@@ -1,0 +1,299 @@
+Practica 1: Compartir archivos entre Linux utilizando NFS
+
+Dentro del servidor Rocky Linux:
+
+Instalamos la herramienta NFS que vamos a estar utilizando, nos aseguramos que esté corriendo y disponible:
+sudo dnf install nfs-utils -y
+
+sudo systemctl start nfs-server
+sudo systemctl enable nfs-server
+sudo systemctl status nfs-server
+
+Creamos el directorio en el que almacenaremos los archivos que queremos compartir y creamos los mismos:
+
+sudo mkdir -p /var/nfs/OS3
+cd /var/nfs/OS3
+sudo touch Adrian{1..100}.txt
+
+Para evitar problemas de propiedad y permisos le especificaremos que tenga permisos de ejecución y lectura, además de que no se necesita un propietario como tal: 
+
+sudo chown nobody:nobody /var/nfs/OS3
+sudo chmod 755 /var/nfs/OS3
+
+Vamos a editar el archivo /etc/exports para poder compartir la carpeta que creamos:
+
+sudo nano /etc/exports
+/var/nfs/os3 10.0.0.0/24(rw,sync,no_subtree_check)
+
+Luego de guardar y salir vamos a exportar los recursos a compartir, deberían ver un mensaje relacionado a su exito:
+
+sudo exportfs -rav
+
+Para evitar el bloqueo por parte del firewall vamos a permitir el servicio NFS y a recargar el firewall para guardar cambio:
+
+sudo firewall-cmd --permanent --add-service=nfs
+sudo firewall-cmd --reload
+
+Dentro del cliente (Ubuntu):
+
+Vamos a descargar la herramienta cliente de NFS: 
+
+sudo apt install nfs-common -y
+
+Creamos su respectivo punto de montaje al cual relacionaremos luego:
+
+sudo mkdir -p /mnt/OS3
+
+Vamos a montar manualmente nuestro recurso NFS usando la dirección IP de nuestro servidor Rocky Linux y verificamos que se vea la conexión:
+
+sudo mount -t nfs 10.0.0.116:/var/nfs/OS3 /mnt/OS3
+df -h
+
+Revisamos que los archivos fueron transferidos:
+ls /mnt/OS3
+
+Ahora haremos al montaje permanente, permitiendo así que se mantenga tras reinicios:
+
+sudo nano /etc/fstab
+10.0.0.116:/var/nfs/OS3 /mnt/OS3 nfs defaults 0 0
+
+Finalmente para confirmar su efectividad vamos a reiniciar la máquina cliente y ver el estado de los archivos:
+
+reboot
+df -h
+ls /mnt/OS3
+
+#######################################################################################################################
+
+Practica 2:Creación de fileserver compatible con Windows utilizando SAMBA
+
+Dentro de Rocky Linux, instalamos SAMBA y sus herramientas necesarias, para luego habilitarlas:
+
+sudo dnf install samba samba-client samba-common -y
+
+sudo systemctl enable --now smb nmb
+
+Vamos a crear la carpeta compartida y asignamos permisos para que todos puedan acceder a los archivos. Luego, creamos los archivos a compartir:
+
+sudo mkdir -p /srv/samba/public
+sudo chcon -t samba_share_t /srv/samba/public
+cd /srv/samba/public
+sudo chown -R nobody:nobody /srv/samba/public
+sudo chmod -R 777 /srv/samba/public
+touch adrian{1..100}.txt
+
+
+Configuramos el Firewall para que permita el servicio SAMBA:
+
+
+sudo firewall-cmd --add-service=samba --permanent
+sudo firewall-cmd --reload
+
+Ahora pasaremos a editar el archivo de configuración de SAMBA:
+
+sudo nano /etc/samba/smb.conf
+
+Y colocaremos los parametros para nuestro archivo compartido
+[public]
+   path = /srv/samba/public
+   browsable = yes
+   writable = yes
+   guest ok = yes
+   read only = no
+   force user = nobody
+
+Ahora debemos crear los grupos y usuarios para SAMBA:
+
+sudo groupadd sambausuario
+sudo useradd -M -s /sbin/nologin AB
+sudo smbpasswd -a AB
+sudo usermod -aG sambausuario AB
+
+Reiniciamos los servicios de SAMBA para asegurar que los cambios se hayan dado:
+
+sudo systemctl restart smb nmb
+
+Dentro del cliente Windows:
+Para conectar la carpeta compartida como unidad de red, nos dirigimos a la siguiente ubicación:
+Explorador de archivos> Este equipo> Conectar a unidad de red...
+
+Escribimos en el apartado carpeta la IP de nuestro servidor y el archivo a utilizar:
+
+\\IP_DEL_SERVIDOR\public
+
+Seleccionamos la casilla "Conectar con otras credenciales" y clicamos en finalizar para después colocar el usuario SAMBA que creamos.
+
+Ahora deberíamos tener acceso a los archivos creados, entramos a Adrian99.txt y colocamos "el zumzum de la carabela". Lo guardamos, y nos dirigimos al servidor Rocky para comprobar el cambio:
+
+cd /srv/samba/public
+cat Adrian99.txt
+
+#############################################################################################################################
+
+Practica 3:Creación de Controlador de Dominio con cliente Windows.
+
+
+Configuramos el nombre del host del servidor
+sudo hostnamectl set-hostname SO3.inet
+
+A través de nmtui nos aseguramos de que nuestra IP es estática y está configurada en los DNS servers. Agregamos el nombre SO3.inet a Search Domains
+Hostname
+
+sudo nano /etc/hosts
+Colocamos:
+10.0.0.117 SO3-DOM SO3.inet inet
+
+Reiniciamos la tarjeta de red
+sudo nmcli device disconnect ens160
+sudo nmcli device connect ens160
+
+Revisamos tener la información correcta dentro de:
+sudo nano /etc/resolv.conf 
+
+Renombramos los archivos de configuración antiguos para copia de seguridad:
+sudo mv /etc/samba/smb.conf /etc/samba/smb.conf.backup
+sudo mv /etc/krb5.conf /etc/krb5.conf.backup
+
+Descargamos el paquete de samba desde el sitio web oficial:
+
+
+sudo wget https://download.samba.org/pub/samba/stable/samba-4.16.2.tar.gz
+sudo mkdir -p /samba
+sudo mv samba-4.16.2.tar.gz /samba/
+cd /samba/
+ls
+sudo tar -zxf samba-4.16.2.tar.gz samba-4.16.2/
+cd samba-4.16.2/
+sudo dnf -y install epel-release
+sudo dnf config-manager --set-enabled crb
+sudo dnf -y update
+
+sudo dnf -y install \
+docbook-style-xsl \
+python3-markdown \
+bison \
+dbus-devel \
+flex \
+gcc \
+gdb \
+gnutls-devel \
+jansson-devel \
+keyutils-libs-devel \
+krb5-workstation \
+libacl-devel \
+libaio-devel \
+libarchive-devel \
+libattr-devel \
+libblkid-devel \
+libtasn1 \
+libtasn1-tools \
+libxml2-devel \
+libxslt \
+lmdb-devel \
+openldap-devel \
+pam-devel \
+perl-ExtUtils-MakeMaker \
+perl-Parse-Yapp \
+popt-devel \
+python3-cryptography \
+python3-dns \
+python3-gpg \
+python3-devel \
+readline-devel \
+rpcgen \
+systemd-devel \
+tar \
+zlib-devel \
+perl-JSON \
+gpgme-devel \
+screen \
+perl-FindBin 
+
+sudo dnf -y update
+sudo ./configure
+sudo make -j 2
+sudo make -j 2 install
+
+export PATH=/usr/local/samba/bin/:/usr/local/samba/sbin/:$PATH
+
+Agregamos el path a los perfiles de usuario y root:
+sudo nano ~/.bash_profile
+sudo nano ../.bash_profile
+
+Agregamos lo siguiente al final de cada uno:
+
+PATH=$PATH:$HOME/bin:/usr/local/samba/bin/:/usr/local/samba/sbin/:$PATH export PATH
+
+Provisionamos el dominio:
+
+
+sudo /usr/local/samba/bin/samba-tool domain provision --use-rfc2307 --interactive --option="interfaces=lo ens160" --option="bind interfaces only=yes"
+
+Y le colocamos los datos necesarios:
+
+Realm [INET]: SO3.inet
+Domain [SO3]: SO3-DOM
+Server Role (dc, member, standalone) [dc]: dc
+DNS backend (SAMBA_INTERNAL, BIND9_FLATFILE, BIND9_DLZ, NONE) [SAMBA_INTERNAL]: 
+SAMBA_INTERNAL
+DNS forwarder IP address (write 'none' to disable forwarding) [8.8.8.8]: Enter
+Administrator password: Ab20240787
+Retype password: Ab20240787
+
+
+sudo /usr/local/samba/sbin/samba
+
+ping www.google.com
+
+sudo cp /usr/local/samba/private/krb5.conf /etc/krb5.conf
+
+host -t SRV _ldap._tcp SO3.inet
+host -t SRV _kerberos._udp SO3.inet
+
+ping SO3.inet
+
+sudo systemctl stop firewalld
+
+sudo dnf -y install iptables-services
+
+sudo systemctl start iptables
+sudo systemctl enable iptables
+sudo systemctl status iptables
+
+sudo nano /etc/sysconfig/iptables
+
+Debajo de las reglas de aceptación de IPtables, agregamos estas líneas en el archivo de configuración:
+
+-A INPUT -p tcp -s 10.0.0.117/24 -m state --state NEW -m multiport --dports 53,88,135,139,389,445,464,636,3268,49152:65535 -j ACCEPT
+-A INPUT -p udp -s 10.0.0.117/24 -m state --state NEW -m multiport --dports 53,123,137,138,389,636 -j ACCEPT
+
+sudo systemctl restart iptables
+sudo systemctl status iptables
+
+sudo /usr/local/samba/bin/samba-tool user create lanegracubana "Airam20240787" --given-name="La Negra" --surname="Cubana" --mail=lanegracubana@so3.inet
+
+Agregamos al usuario a la lista de administradores y delegación para evitar problemas de privilegios:
+
+sudo /usr/local/samba/bin/samba-tool group addmembers "Domain Admins" lanegracubana
+sudo /usr/local/samba/bin/samba-tool group listmembers "Domain Admins"
+
+sudo /usr/local/samba/bin/samba-tool dns add 10.0.0.117 SO3.inet www A 10.0.0.122 -U lanegracubana
+
+
+Dentro del Cliente Windows vamos a:
+
+Control Panel > Network and Internet > Network and Sharing Center > Change adapter settings > (clic derecho en la conexión activa) Properties > Internet Protocol Version 4 (TCP/IPv4) > Properties > Use the following DNS server addresses.
+
+Dentro de Preferred DNS server, escribiremos la IP del servidor Samba. Y como opción alternativa el dns de google 8.8.8.8
+
+Después de haber hecho eso, dentro del mismo apartado iremos a: Advanced > DNS > DNS suffix for this connection > Y colocaremos nuestro dominio “SO3.inet”
+
+Revisamos que reconozca al dominio:
+ping SO3.inet
+
+Y para poder iniciar como el usuario creado al dominio vamos al siguiente apartado para colocar al dominio:
+Settings > About your PC > Advanced system settings > computer name > change > Domain > “SO3.inet”
+
+Tras esto nos pedirá los datos del usuario SAMBA, si logramos ingresar nos pedirá reiniciar la máquina, después de hacerlo ingresaremos como otro usuario y usaremos las credenciales que creamos para usuario, nos debería dar la bienvenida con nuestro usuario creado y con eso habremos tenido éxito.
+
+
