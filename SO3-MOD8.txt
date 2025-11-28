@@ -1,0 +1,156 @@
+Practica 1:Instalación y configuración de Docker.
+
+
+Desinstalamos versiones anteriores para evitar conflicto con lo que haremos:
+
+sudo dnf remove docker \
+                  docker-client \
+                  docker-client-latest \
+                  docker-common \
+                  docker-latest \
+                  docker-latest-logrotate \
+                  docker-logrotate \
+                  docker-engine \
+                  podman \
+                  runc
+
+
+Instalar utilizando repositorio RPM
+
+sudo dnf -y install dnf-plugins-core
+sudo dnf config-manager --add-repo https://download.docker.com/linux/rhel/docker-ce.repo
+
+sudo dnf install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+
+Verificamos que docker esté arriba:
+
+sudo systemctl enable --now docker
+sudo systemctl start docker
+sudo systemctl status docker
+
+Comprobamos su funcionamiento:
+
+sudo docker run hello-world
+docker --version
+
+Usamos Docker para buscar la imagen de Nginx y descargarla:
+
+sudo docker search nginx
+sudo docker pull nginx
+
+sudo docker images
+
+Creamos el directorio para la página web y le configuramos el index:
+
+sudo mkdir /home/website
+cd /home/website/
+nano index.html >
+
+<html>
+ <head>
+  <title>DOCKER y NGINX</title>
+ </head>
+ <body>
+  <H2>Airam Brazoban 2024-0787</H2>
+ </body>
+</html>
+
+Relacionamos los puertos y hacemos el volumen persistente: 
+sudo docker run -d -p 8888:80 -v /home/website:/usr/share/nginx/html/ nginx
+
+sudo docker ps -a
+
+Dentro del navegador de nuestra máquina:
+127.0.0.1:8888
+####################################################################################
+
+Practica 2: Instalación de Portainer.
+
+Instalamos Portainer:
+
+sudo docker volume create portainer_data
+
+sudo docker run -d -p 9443:9443 --name portainer --restart=always 
+-v /var/run/docker.sock:/var/run/docker.sock -v portainer_data:/data 
+portainer/portainer-ce:lts
+
+
+sudo docker ps -a
+
+En el navegador de nuestra máquina vamos a la dirección de Portainer:
+
+https://127.0.0.1:9443
+
+Nos pedirá crear un usuario de administrador, luego de crearlo ya estaremos en la interfaz de Portainer, para continuar con la practica vamos a:
+
+Add Environments >Docker Standalone >Start Wizard
+
+Debemos copiar el comando del agente que hizo el wizard y pegarlo en la terminal de nuestra máquina.
+
+Ahora en Portainer, llenamos los apartados "Name" y "Environment address" (En el Environment address colocaremos la ip de la máquina:puerto del agente. Ej: 10.0.0.117:9001). Luego, click en "Connect", y "Close".
+
+Click en el Environment creado >Containers >Nginx >Stop
+
+Y la página que creamos no debería estar disponible a menos que la encendamos.
+###########################################################################################
+
+Practica 3: Despliegue de contenedor de Wordpress utilizando Docker-Compose
+
+Para instalar Docker Compose:
+
+sudo curl -L "https://github.com/docker/compose/releases/download/v2.27.0/docker-compose-linux-x86_64" -o /usr/local/bin/docker-compose
+sudo chmod +x /usr/local/bin/docker-compose
+docker-compose version
+
+Vamos a crear y editar el directorio para nuestro proyecto:
+
+mkdir ~/wordpress-compose
+cd ~/wordpress-compose
+nano docker-compose.yml
+
+Dentro del yml escribiremos la configuración necesaria para el funcionamiento de nuestros servicios: 
+
+services:
+  db:
+    image: mysql:5.7
+    container_name: wordpress_db
+    restart: always
+    environment:
+      MYSQL_DATABASE: wordpress
+      MYSQL_USER: wp_user
+      MYSQL_PASSWORD: wp_pass
+      MYSQL_ROOT_PASSWORD: root_pass
+    volumes:
+      - db_data:/var/lib/mysql
+
+  wordpress:
+    image: wordpress:latest
+    container_name: wordpress_app
+    restart: always
+    ports:
+      - "8888:80"
+    environment:
+      WORDPRESS_DB_HOST: db:3306
+      WORDPRESS_DB_NAME: wordpress
+      WORDPRESS_DB_USER: wp_user
+      WORDPRESS_DB_PASSWORD: wp_pass
+    depends_on:
+      - db
+    volumes:
+      - wp_data:/var/www/html
+
+volumes:
+  db_data:
+  wp_data:
+
+
+Nos aseguraremos de guardar el directorio y vamos a desplegar los contenedores:
+
+sudo docker compose up -d
+sudo docker ps
+
+Vamos a la siguiente dirección desde nuestro navegador:
+http://localhost:8888
+
+Veremos la página para preparar el uso de Wordpress, elegimos idioma y cuando llenemos los campos que se nos pide con nuestros datos e ingresemos sesión seremos capaces de usar Wordpress.
+
