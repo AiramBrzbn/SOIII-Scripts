@@ -1,0 +1,334 @@
+Practica 1:Instalación de Webmin
+
+Primero como buena practica actualizamos nuestro sistema:
+sudo dnf update –y
+
+Luego como Webmin requiere perl y wget instalaremos las dependencias necesarias:
+sudo dnf install -y perl wget
+
+Ahora vamos a descargar el paquete RPM de Webmin desde el sitio oficial de la siguiente manera:
+wget https://prdownloads.sourceforge.net/webadmin/webmin-2.101-1.noarch.rpm
+
+Y lo instalamos:
+sudo dnf install -y ./webmin-2.101-1.noarch.rpm
+
+Verificamos el funcionamiento del servicio:
+sudo systemctl status webmin
+
+En caso de no estar activo usamos:
+sudo systemctl enable --now webmin
+
+Y ajustamos el firewall para permitir el puerto 10000:
+sudo firewall-cmd --permanent --add-port=10000/tcp
+sudo firewall-cmd –reload
+
+Para ingresar a Webmin abrimos el navegador y accedemos a:
+https://Nuestra_IP:10000
+
+Luego ingresamos sesión con las credenciales de nuestro sistema.
+
+Crear una cuenta de usuario:
+
+En el menú lateral, vamos a System > Users and Groups.
+Hacemos clic en Create a new user.
+Completamos los campos: username, real name(opcional), home directory, shell (si queremos que tenga acceso a la terminal elegimos /bin/bash), password.
+Hacemos clic en Create y el usuario será creado.
+
+Para eliminar un usuario:
+
+Users and Groups>Buscamos a nuestro usuario en la lista>Seleccionamos y Delete, si queremos borrarlo completamente marcamos la opción para eliminar también el directorio y demás, tras confirmar será eliminado.
+
+Iniciar, detener y reiniciar servicios (ssh):
+
+Desde el menú lateral vamos a System>Bootup and Shutdown
+En la lista de servicios buscamos el servicio sshd y luego podremos eligir entre las diferentes opciones que hay.
+
+Configuración de IP Estática en Webmin:
+
+Menú lateral > Networking > Network configuration > Network Interfaces
+Elegimos la interfaz a configurar y hacemos clic.
+Cambiamos el Addressing de Automatic a Static configuration
+Completamos los campos como la direccion IP, Netmask y demás para luego guardar los cambios con save.
+Aplicamos la configuracion haciendo clic en save, Apply Configuration.
+
+Administración de software para actualizar, instalar y eliminar:
+
+Menú lateral > System > Software Package Updates.
+Aquí veremos las actualizaciones disponibles, podemos seleccionar paquetes y hacer clic en Update Selected Packages para actualizarlos.
+
+Para instalar un nuevo paquete:
+Menu lateral > System > Software Packages.
+Seleccionamos Package from DNF or YUM.
+Escribimos el nombre del paquete (ejemplo: htop ).
+Hacemos clic en Install.
+
+Para eliminar un paquete:
+En la misma sección Software Packages, buscamos el paquete instalado.
+Seleccionamos y hacemos clic en Delete.
+Confirmamos la acción.
+
+Gestión de Archivos y Directorios:
+
+Menu lateral > Tools > File Manager
+Con esto podremos estaremos dentro de una vista de explorador de archivos, podemos hacer clic para navegar.
+
+Para editar un archivo:
+
+Menu lateral > Tools > File Manager > edit > realizamos los cambios > save
+
+Eliminar un archivo:
+
+Menu lateral > Tools > File Manager > clic derecho en el deseado > Delete > Confirmamos.
+
+Monitorización del Sistema:
+
+Menú lateral > System > Running Processes.
+Menú lateral > Hardware > Disk and Network Filesystems.
+
+###############################################################################################################
+
+Practica 2:Despliegue de una VM con Terraform en DigitalOcean.
+
+
+Primero vamos a necesitar crear un token de API en DigitalOcean que utilizaremos para que terraform trabaje con ello:
+Vamos a DigitalOcean> API >Generate New Token > Name >Read and Write' (full access)>Generate Token.
+
+Ahora vamos a subir la llave pública SSH de nuestro server a DigitalOcean para crear un fingerprint que usaremos después:
+Dentro de DigitalOCean >Settings >Security >Add SSH Key.
+
+Dentro de nuestro servidor Rocky Linux vemos la llave publica y la copiamos para luego pegarla en el apartado anterior de DigitalOcean, esto nos dará el fingerprint:
+sudo cat ~/.ssh/id_rsa.pub
+
+Si no contamos con las llaves vamos a generarlas con:
+
+ssh-keygen -t rsa -b 4096
+
+Ahora procederemos a instalar Terraform en Rocky Linux
+
+sudo dnf install -y yum-utils
+sudo yum-config-manager --add-repo https://rpm.releases.hashicorp.com/RHEL/hashicorp.repo
+sudo dnf install -y terraform
+
+Revisamos la version para confirmar su instalación:
+terraform -version
+
+Y procedemos a crear su respectivo directorio y archivo de configuración para Terraform:
+
+mkdir ~/terraform-digitalocean
+cd ~/terraform-digitalocean
+
+En este archivo definiremos el proveedor como DigitalOCean:
+sudo nano main.tf
+
+   terraform {
+     required_providers {
+       digitalocean = {
+         source  = "digitalocean/digitalocean"
+         version = "~> 2.0"
+       }
+     }
+   }
+   provider "digitalocean" {
+     token = var.do_token
+   }
+   variable "do_token" {}
+
+
+Y crearemos otro archivo en donde guardar las variables para el token
+sudo nano terraform.tfvars
+
+Dentro escribimos:
+do_token = "TU_TOKEN_DE_DIGITALOCEAN"
+
+Iniciamos Terraform
+sudo terraform init
+
+#Crear la configuración del Droplet
+sudo nano main.tf
+
+#Añade al final:
+   resource "digitalocean_droplet" "os3vm" {
+     image    = "ubuntu-22-04-x64"
+     name     = "OS3vm"
+     region   = "nyc1"
+     size     = "s-1vcpu-1gb"
+     ssh_keys = [ "TU_FINGERPRINT_DE_LA_LLAVE" ]
+   }
+
+
+Validamos nuestra configuración
+sudo terraform validate
+
+Desplegamos nuestro VM 
+sudo terraform apply
+
+Ahora regresamos a DigitalOCean y deberíamos ser capaces de ver el droplet que creamos.
+
+Confirmamos que sea accesible por SSH, si funciona habremos finalizado:
+ssh root@IP_PUBLICA_DROPLET
+
+###################################################################################################
+
+Practica 3: Instalación de Ansible
+
+Instalamos ansible y las dependencias necesarias para su uso:
+sudo dnf install epel-release -y
+sudo dnf install ansible -y
+sudo dnf install python3-pip -y
+pip install pywinrm
+pip3 install pywinrm        
+
+Revisamos la version de Ansible para confirmar su instalación:
+ansible --version
+
+Creamos el usuario 'ansible' en ambas máquinas cliente:
+
+ssh root@IP_DEL_CLIENTE_LINUX
+Dentro de la VM Linux (cliente en DigitalOcean):
+sudo useradd -m ansible
+sudo passwd ansible
+sudo usermod -aG wheel ansible
+Permitimos el sudo sin contraseña para evitar complicaciones a futuro:
+echo 'ansible ALL=(ALL) NOPASSWD:ALL' | sudo tee /etc/sudoers.d/ansible
+o usamos visudo y lo escribimos al final ansible ALL=(ALL) NOPASSWD:ALL
+
+Ahora recomiendo confirmar la existencia de los directorios relacionados con las llaves para el usuario ansible usando por ejemplo cat o nano /home/ansible/.ssh, si no existe lo podemos crear:
+
+mkdir -p /home/ansible/.ssh
+cd /home/ansible/.ssh
+sudo nano authorized_keys (podríamos colocar la llave publica del server)
+chown -R ansible:ansible /home/ansible/.ssh
+chmod 700 /home/ansible/.ssh
+chmod 600 /home/ansible/.ssh/authorized_keys
+
+Si no lo queremos hacer manual podríamos intentarlo de la siguiente manera:
+
+Pasamos nuestra llave desde el servidor al cliente Linux:
+En nuestro servidor Rocky Linux, ejecutamos:
+cat ~/.ssh/id_rsa.pub
+
+Copiamos la salida del comando anterior (Si no existe, créala con ssh-keygen -t rsa -b 4096) y la copiamos al cliente.
+
+ssh-copy-id ansible@IP_DEL_CLIENTE_LINUX
+
+
+Dentro de la VM Windows:
+Settings >Accounts >Other users >Add someone else to this pc >I don’t have this person’s sign-in information >Add user without a Microsoft Account.
+
+Luego de colocar el nombre (ansible) y contraseña, cambiamos el tipo de cuenta y seleccionar 'Administrador'.
+
+Si lo anterior no funciona puedes usar el comando netplwiz desde el powershell, con la nueva interfaz elegimos al usuario ansible > Properties > Group Membership > Administrator
+
+
+Ahora Configuramos el WinRM en Windows 10
+
+
+Nos Aseguramos de que el servicio 'Windows Remote Management (WS-Management)' esté iniciado y en modo automático.
+Win + R > services.msc > Windows Remote Management (WS-Management)> Startup type: automatic >Service status: Running (start)
+
+Cambiamos el perfil de red a 'Privado' (si no lo cambiamos nos va a bloquear lo siguiente):
+Settings > Network & Internet >Ethernet > Network profile >Private.
+
+Abrimos el PowerShell como administrador.
+Ejecutamos
+
+winrm quickconfig
+winrm set winrm/config/service/auth '@{Basic="true"}'
+winrm set winrm/config/service '@{AllowUnencrypted="true"}'
+winrm set winrm/config/listener?Address=*+Transport=HTTP '@{Port="5985"}'
+
+Set-Item -Path WSMan:\localhost\Service\AllowUnencrypted -Value $true
+Set-Item -Path WSMan:\localhost\Service\Auth\Basic -Value $true
+
+Ahora procedemos a crear el inventario de Ansible (/etc/ansible/hosts) en el servidor Rocky.
+Vamos a edditar el archivo de inventario:
+
+sudo nano /etc/ansible/hosts
+
+Y colocamos el contenido de grupo y sus datos:
+
+[linux]
+cliente1 ansible_host=IP_DEL_CLIENTE_LINUX ansible_user=ansible ansible_ssh_private_key_file=~/.ssh/id_rsa ansible_become=true ansible_become_method=sudo
+
+[win]
+cliente2 ansible_host=IP_DEL_CLIENTE_WINDOWS ansible_user=ansible ansible_password=TU_CONTRASEÑA ansible_connection=winrm ansible_winrm_transport=basic ansible_port=5985 ansible_winrm_server_cert_validation=ignore
+
+Finalmente probamos la conectividad con módulo ping
+ansible linux -m ping
+ansible win -m win_ping
+
+########################################################################################
+
+Practica 4: Comandos Ad-Hoc
+
+Comando ad-hoc para copiar un archivo de Windows desde el escritorio al apartado documentos:
+ansible win -m win_copy \
+  -a "src='C:/Users/ansible/Desktop/prueba.txt' dest='C:/Users/ansible/Documents/prueba.txt' remote_src=yes"
+
+Comando ad-hoc para reiniciar la VM cliente Linux (ansible1)
+ansible linux -m reboot -b
+
+#########################################################################################
+
+Practica 5:Playbooks
+
+Primero crearemos Playbook para instalar Notepad++ en Windows (ansible2)
+
+Necesitamos crear el archivo del playbook:
+
+sudo nano install_notepadpp.yml
+
+Y colocaremos el contenido para que realice las tareas:
+
+- name: Instalar Notepad++ en Windows
+  hosts: win
+  tasks:
+    - name: Descargar instalador de Notepad++
+      win_get_url:
+        url: https://github.com/notepad-plus-plus/notepad-plus-plus/releases/download/v8.6.8/npp.8.6.8.Installer.x64.exe
+        dest: C:\\Users\\ansible\\Downloads\\npp_installer.exe
+
+    - name: Instalar Notepad++
+      win_package:
+        path: C:\\Users\\ansible\\Downloads\\npp_installer.exe
+        state: present
+        arguments: /S
+
+
+Para ejecutar el playbook usamos:
+ansible-playbook install_notepadpp.yml
+
+Ahora debemos verificar la instalación:
+Vamos a la VM Windows, abrirmos el menú Inicio y buscamos que la aplicación Notepad++ esté instalada.
+
+Procedemos a crear el Playbook para instalar NGINX en Linux en ansible1
+
+Creamos el archivo del playbook:
+
+sudo nano install_nginx.yml
+
+Colocamos los datos para las tareas deseadas:
+
+- name: Instalar NGINX en Linux
+  hosts: linux
+  become: true
+  tasks:
+    - name: Instalar nginx
+      dnf:
+        name: nginx
+        state: present
+
+    - name: Iniciar y habilitar nginx
+      systemd:
+        name: nginx
+        enabled: true
+        state: started
+
+Ejecutamos el playbook:
+ansible-playbook install_nginx.yml
+
+Y Verificamos que dentro de la VM cliente Linux que nginx exista y esté funcional:
+sudo systemctl status nginx
+
+También si visitamos la IP de la VM Linux desde el navegador podremos ver la página por defecto de NGINX.
+
