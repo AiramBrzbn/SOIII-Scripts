@@ -201,4 +201,62 @@ sudo /usr/local/snort/bin/snort -c /usr/local/snort/etc/snort/snort.lua \
 -R /usr/local/snort/etc/snort/local.rules \
 -i ens160 -A alert_fast -s 65535 -k none
 
+###############################################################################
+Laboratorio 6.4: Seguridad en Linux.
+
+CONFIGURAR 2FA CON GOOGLE AUTHENTICATOR, MÓDULO PAM PARA ACCESO SSH
+
+
+sudo dnf install openssh-server
+sudo systemctl start sshd
+sudo systemctl enable sshd
+sudo systemctl status sshd
+
+Habilitamos el repositorio EPEL:
+sudo dnf install epel-release -y
+
+Instalamos Google Authenticator
+sudo dnf install google-authenticator qrencode qrencode-libs
+
+Luego de estar ubicados en el usuario que tendrá como requerimiento el código de Google Authenticator para conectarse a través de SSH, configuramos Google Authenticator (genera QR, claves, etc.)
+google-authenticator
+
+Tendremos que completar una serie de pasos (asegúrate de aceptar todas las configuraciones, son por seguridad). Luego de haberlos completado y tener nuestro perfil en Google Authenticator, seguimos con la configuración PAM:
+
+sudo nano /etc/pam.d/sshd
+
+Agregamos la siguiente línea al archivo para obligar a PAM a pedir el código de Google Authenticator para la conexión SSH con ese usuario:
+
+auth required pam_google_authenticator.so
+
+
+Guardamos, cerramos, y configuramos SSH para pedir 2FA. Ingresamos al archivo de configuración SSH:
+sudo nano /etc/ssh/sshd_config
+
+Agregamos las siguientes líneas:
+PasswordAuthentication yes
+ChallengeResponseAuthentication yes
+UsePAM yes
+
+
+Modificamos el contexto SElinux en los archivos del usuario para que los servicios no sean bloqueados cuando intenten acceder>
+sudo semanage fcontext -a -t auth_home_t "/home/airam(/.*)?"
+sudo restorecon -Rv /home/airam
+
+
+Confirmamos los permisos:
+sudo chown airam:airam /home/airam/.google_authenticator
+sudo chmod 600 /home/airam/.google_authenticator
+
+sudo chmod 700 /home/airam
+sudo chown ferna:ferna /home/airam
+
+
+Reiniciammos el servicio SSH para aplicar cambios
+sudo systemctl restart sshd
+
+Probamos la conexión desde la máquina host:
+ssh airam@IP_Servidor
+
+Se pedirá contraseña y luego código de Google Authenticator
 
