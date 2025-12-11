@@ -332,3 +332,9 @@ sudo systemctl status nginx
 
 También si visitamos la IP de la VM Linux desde el navegador podremos ver la página por defecto de NGINX.
 
+
+####################################################
+Para caso futuro con Issabel
+wget http://repo.issabel.org/issabel5-netinstall.sh
+chmod +x issabel5-netinstall.sh
+sudo ./issabel5-netinstall.sh
