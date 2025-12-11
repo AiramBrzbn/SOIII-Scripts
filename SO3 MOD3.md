@@ -58,6 +58,35 @@ su
 
 Y colocamos la contraseña que especificamos anteriormente.
 
+También podemos hacerlo de la siguiente forma:
+
+Al ingresar al menú, ubicamos el cursor en la línea qué inicia con la palabra "linux /vmlinuz-...". Para ir hasta el final de dicha línea, presionamos "Ctrl + e", y agregamos "rd.break". Luego, presionamos Ctrl + X para ejecutar el menú con las nuevas configuraciones. 
+
+Tendremos acceso como Root en modo emergencia. Con los siguientes comandos remontamos el sistema de archivos con permisos de escritura:
+
+mount -o remount,rw /sysroot
+
+chroot /sysroot
+
+Ahora cambiamos la contraseña:
+
+passwd
+
+Luego de ello, escribimos y reescribimos la nueva contraseña de Root. Después, opcional pero recomendado, actualizamos el contexto SELinux.
+
+touch /.autorelabel
+
+Salimos del entorno. El sistema se reiniciará automáticamente:
+
+exit
+
+exit
+
+Una vez iniciado el sistema, abrimos la terminal y ejecutamos el comando:
+
+su
+
+#Colocaremos la nueva contraseña de Root, y veremos cómo obtenemos privilegios de superusuario.
 
 
 \################################################################################
@@ -197,6 +226,7 @@ sudo nano authorized\_keys
 ctrl+o, ctrl+x
 
 Repetimos el control remoto por ssh desde Windows y si podemos entrar sin contraseña hemos tenido exito con la generación y uso de las llaves.
+
 
 
 
